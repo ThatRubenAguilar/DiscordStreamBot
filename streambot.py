@@ -16,10 +16,6 @@ client = discord.Client()
 config = Config("streambot.config")
 
 
-def get_default_discord_bot_token():
-    return ""
-
-
 @client.event
 async def on_ready():
     print('Logged in as')
@@ -114,31 +110,13 @@ async def stream_status(message):
 def async_test():
     global request_counter
     loop = asyncio.get_event_loop()
-    #r = loop.run_until_complete(check_request_counter_overflow(None))
-    r = request_counter_overflow(None)
-    print(r)
-    print(request_counter)
-    print(request_spam_reset_base_time)
-    request_counter = 6
-    r = request_counter_overflow(None)
-    print(r)
-    print(request_counter)
-    print(request_spam_reset_base_time)
-    time.sleep(6)
-    r = request_counter_overflow(None)
-    print(r)
-    print(request_counter)
-    print(request_spam_reset_base_time)
-    r = request_counter_overflow(None)
-    print(r)
-    print(request_counter)
-    print(request_spam_reset_base_time)
+    r = loop.run_until_complete(request_counter_overflow(None))
     pending = asyncio.Task.all_tasks()
     loop.run_until_complete(asyncio.gather(*pending))
     loop.close()
 
 
 if __name__ == '__main__':
-    # client.run(get_default_discord_bot_token())
-    client.close()
-    async_test()
+    client.run(config.discord_api_key())
+    # client.close()
+    # async_test()
