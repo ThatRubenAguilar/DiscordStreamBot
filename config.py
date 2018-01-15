@@ -13,6 +13,7 @@ class Config:
         self.__default_firewall_name=None
         self.__digital_ocean_api_key=None
         self.__discord_api_key=None
+        self.__stream_play_key=None
 
         if file_path is not None:
             self.__config_refresh_base_time=time.perf_counter()
@@ -28,6 +29,7 @@ class Config:
         self.__default_firewall_name=parser.get("Droplet", "DefaultFirewallName", fallback=None)
         self.__digital_ocean_api_key=parser.get("ApiKey", "DigitalOceanApiKey", fallback=None)
         self.__discord_api_key=parser.get("ApiKey", "DiscordApiKey", fallback=None)
+        self.__stream_play_key=parser.get("StreamPlayKey", "PlayKey", fallback="{play key}")
 
     def __check_for_config_refresh(self):
         if self.__config_refresh_time_threshold is not None and \
@@ -55,3 +57,7 @@ class Config:
     def discord_api_key(self):
         self.__check_for_config_refresh()
         return self.__discord_api_key
+
+    def stream_play_key(self):
+        self.__check_for_config_refresh()
+        return self.__stream_play_key

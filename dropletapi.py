@@ -2,11 +2,18 @@ import digitalocean as digio
 from digitalocean.baseapi import NotFoundError
 import threading
 from config import Config
-from exception import LockedDropletException, MissingFirewallException, MissingSnapshotException, MissingDropletException
+from exception import LockedDropletException, MissingFirewallException, MissingSnapshotException, \
+    MissingDropletException, DropletBootFailedException
+import asyncio
 
 
 class DropletApi:
     __droplet_sem = threading.Semaphore()
+    __existing_droplets = None
+
+    @staticmethod
+    def track_single_droplets():
+        DropletApi.__existing_droplets = {}
 
     @staticmethod
     def check_existing_droplet(manager, tag_name):
@@ -14,7 +21,6 @@ class DropletApi:
         if len(droplets) is 0:
             return None
 
-        print(droplets)
         return droplets[0]
 
     @staticmethod
@@ -24,7 +30,6 @@ class DropletApi:
         if len(snapshot) is 0:
             return None
 
-        print(snapshots)
         return snapshot[0]
 
     @staticmethod
@@ -34,15 +39,18 @@ class DropletApi:
         if len(firewall) is 0:
             return None
 
-        print(firewalls)
         return firewall[0]
 
     @staticmethod
     def destroy_tagged_droplets(manager, tag_name):
-        droplets = manager.get_all_droplets(tag_name)
-        print(droplets)
+        droplets = manager.get_all_droplets(tag_name=tag_name)
+
         for droplet in droplets:
             droplet.destroy()
+            if DropletApi.__existing_droplets is not None and droplet.name in DropletApi.__existing_droplets:
+                DropletApi.__existing_droplets.pop(droplet.name)
+
+        return droplets
 
     @staticmethod
     def create_or_get_tag(manager, tag_name):
@@ -69,8 +77,20 @@ class DropletApi:
         return droplet, actions
 
     @staticmethod
-    def create_or_get_single_droplet_from_snapshot(manager, tag_name, snapshot_name, firewall_name=None):
+    async def __poll_existing_droplet_or_timeout(manager, tag_name, max_attempts=10, attempt_delay_sec=1):
+        attempts = 0
+        while attempts < max_attempts:
+            await asyncio.sleep(attempt_delay_sec)
+            droplet = DropletApi.check_existing_droplet(manager, tag_name)
+            if droplet is not None:
+                return droplet
+            attempts += 1
+        return None
+
+    @staticmethod
+    async def create_or_get_single_droplet_from_snapshot(manager, tag_name, snapshot_name, firewall_name=None, progress_callback=None):
         droplet_name = "{}-{}".format(snapshot_name, tag_name)
+
         if not DropletApi.__droplet_sem.acquire(blocking=False):
             raise LockedDropletException("droplet {} is already being created.".format(droplet_name))
         try:
@@ -78,12 +98,17 @@ class DropletApi:
             if droplet is not None:
                 return droplet
 
+            if DropletApi.__existing_droplets is not None and droplet_name in DropletApi.__existing_droplets:
+                droplet = await DropletApi.__poll_existing_droplet_or_timeout(manager, tag_name)
+                if droplet is not None:
+                    return droplet
+                raise MissingDropletException("droplet {} could not be located".format(droplet_name))
+
             snapshot = DropletApi.get_droplet_snapshot(manager, snapshot_name)
             if snapshot is None:
                 raise MissingSnapshotException("snapshot {} is missing".format(snapshot_name))
 
             ssh_keys = manager.get_all_sshkeys()
-            print(ssh_keys)
 
             region_name = snapshot.regions[0]
 
@@ -97,10 +122,13 @@ class DropletApi:
                 tags=[tag_name]
             )
 
-            print(droplet)
-            droplet.create()
+            if progress_callback is not None:
+                await progress_callback("preparing to turn on droplet {}".format(droplet_name))
 
-            print(droplet)
+            if DropletApi.__existing_droplets is not None and droplet.name not in DropletApi.__existing_droplets:
+                DropletApi.__existing_droplets[droplet.name] = droplet.name
+
+            droplet.create()
 
             # tag = create_or_get_tag(tag_name)
             # if tag is None:
@@ -114,16 +142,22 @@ class DropletApi:
                     raise MissingFirewallException("firewall {} is missing".format(firewall_name))
                 firewall.add_droplets([droplet.id])
 
-            # make async and send note only if there's trouble
-            # actions = droplet.get_actions()
-            # complete = False
-            # while not complete:
-            #     for action in actions:
-            #         action.load()
-            #         # Once it shows complete, droplet is up and running
-            #         print(action.status)
-            #         if action.status == 'completed':
-            #             complete = True
+            actions = droplet.get_actions()
+            complete = False
+            final_status = "no-status"
+            while not complete:
+                for action in actions:
+                    action.load()
+                    # Once it shows complete, droplet is up and running
+                    if action.status is not 'in-progress':
+                        complete = True
+                        final_status = action.status
+                await asyncio.sleep(1)
+
+            if final_status is "errored":
+                raise DropletBootFailedException("droplet {} failed to turn on".format(droplet_name))
+
+            droplet.load()
 
             return droplet
 
@@ -134,8 +168,7 @@ class DropletApi:
 if __name__ == '__main__':
     config = Config("streambot.config")
     manager = digio.Manager(token=config.digital_ocean_api_key())
-    manager.token
     # created_droplet = create_or_get_single_droplet_from_snapshot(manager,
     #     config.default_tag_name(), config.default_snapshot_name(), config.default_firewall_name())
     # print(created_droplet)
-    DropletApi.destroy_tagged_droplets(manager, None)
+    #DropletApi.destroy_tagged_droplets(manager, config.default_tag_name())
