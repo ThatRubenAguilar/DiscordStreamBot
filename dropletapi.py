@@ -88,7 +88,8 @@ class DropletApi:
         return None
 
     @staticmethod
-    async def create_or_get_single_droplet_from_snapshot(manager, tag_name, snapshot_name, firewall_name=None, progress_callback=None):
+    async def create_or_get_single_droplet_from_snapshot(manager, tag_name, snapshot_name, firewall_name=None,
+                                                         progress_callback=None):
         droplet_name = "{}-{}".format(snapshot_name, tag_name)
 
         if not DropletApi.__droplet_sem.acquire(blocking=False):
@@ -168,7 +169,14 @@ class DropletApi:
 if __name__ == '__main__':
     config = Config("streambot.config")
     manager = digio.Manager(token=config.digital_ocean_api_key())
-    # created_droplet = create_or_get_single_droplet_from_snapshot(manager,
-    #     config.default_tag_name(), config.default_snapshot_name(), config.default_firewall_name())
-    # print(created_droplet)
-    #DropletApi.destroy_tagged_droplets(manager, config.default_tag_name())
+    loop = asyncio.get_event_loop()
+    created_droplet = loop.run_until_complete(
+        DropletApi.create_or_get_single_droplet_from_snapshot(manager,
+                                                              config.default_tag_name(),
+                                                              config.default_snapshot_name(),
+                                                              config.default_firewall_name()))
+    print(created_droplet)
+    pending = asyncio.Task.all_tasks()
+    loop.run_until_complete(asyncio.gather(*pending))
+    loop.close()
+    # DropletApi.destroy_tagged_droplets(manager, config.default_tag_name())

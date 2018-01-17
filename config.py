@@ -14,6 +14,7 @@ class Config:
         self.__digital_ocean_api_key=None
         self.__discord_api_key=None
         self.__stream_play_key=None
+        self.__default_stream_key=None
 
         if file_path is not None:
             self.__config_refresh_base_time=time.perf_counter()
@@ -30,6 +31,7 @@ class Config:
         self.__digital_ocean_api_key=parser.get("ApiKey", "DigitalOceanApiKey", fallback=None)
         self.__discord_api_key=parser.get("ApiKey", "DiscordApiKey", fallback=None)
         self.__stream_play_key=parser.get("StreamPlayKey", "PlayKey", fallback="{play key}")
+        self.__stream_play_key=parser.get("StreamPlayKey", "DefaultStreamKey", fallback="{stream key}")
 
     def __check_for_config_refresh(self):
         if self.__config_refresh_time_threshold is not None and \
@@ -61,3 +63,7 @@ class Config:
     def stream_play_key(self):
         self.__check_for_config_refresh()
         return self.__stream_play_key
+
+    def default_stream_key(self):
+        self.__check_for_config_refresh()
+        return self.__default_stream_key

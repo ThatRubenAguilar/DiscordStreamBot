@@ -139,7 +139,7 @@ async def turn_off_stream(message):
                 await client.send_message(message.channel,
                                           "droplet(s) {} turned off"
                                           .format(droplet_names))
-                
+
         except UnauthorizedUserException as e:
             await client.send_message(message.channel, e.args[0])
         except Exception as e:
@@ -153,12 +153,21 @@ async def stream_status(message):
             manager = digio.Manager(token=config.digital_ocean_api_key())
             droplet, statuses = DropletApi.check_single_droplet_status(manager, config.default_tag_name())
             status_names = ",".join([s.status for s in statuses])
+
+            default_stream_key = config.default_stream_key()
+            use_stream_key_line = default_stream_key is not "{stream key}"
+            stream_key_line = ""
+            if use_stream_key_line:
+                stream_key_line = "stream key for publishing is '{}'\n".format(default_stream_key)
+
             await client.send_message(message.channel,
                                       "droplet {0} exists at ip {1}, \n" \
-                                      "stream publish url is rtmp://{1}:1935/publish/{{stream key}}?publish_key={{publish key}}\n" \
-                                      "stream play url is rtmp://{1}:1935/live/{{stream key}}?play_key={3}\n" \
+                                      "stream publish url is rtmp://{1}:1935/publish?publish_key={{publish key}}\n" \
+                                      "{5}" \
+                                      "stream play url is rtmp://{1}:1935/live/{4}?play_key={3}\n" \
                                       "droplet's last status(es) are {2}"
-                                      .format(droplet.name, droplet.ip_address, status_names, config.stream_play_key()))
+                                      .format(droplet.name, droplet.ip_address, status_names,
+                                              config.stream_play_key(), default_stream_key, stream_key_line))
         except MissingDropletException:
             await client.send_message(message.channel, "Stream is currently off, turn it on first! (!turn on stream)")
         except Exception as e:
