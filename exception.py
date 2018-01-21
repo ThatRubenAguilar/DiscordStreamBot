@@ -1,29 +1,33 @@
-
-class LockedDropletException(Exception):
+class StreamBotException(Exception):
     def __init__(self, *args, **kwargs):
         Exception.__init__(self, *args, **kwargs)
 
 
-class MissingSnapshotException(Exception):
+class LockedDropletException(StreamBotException):
     def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+        StreamBotException.__init__(self, *args, **kwargs)
 
 
-class MissingFirewallException(Exception):
+class MissingSnapshotException(StreamBotException):
     def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+        StreamBotException.__init__(self, *args, **kwargs)
 
 
-class MissingDropletException(Exception):
+class MissingFirewallException(StreamBotException):
     def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+        StreamBotException.__init__(self, *args, **kwargs)
 
 
-class DropletBootFailedException(Exception):
+class MissingDropletException(StreamBotException):
     def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+        StreamBotException.__init__(self, *args, **kwargs)
 
 
-class UnauthorizedUserException(Exception):
+class DropletBootFailedException(StreamBotException):
     def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+        StreamBotException.__init__(self, *args, **kwargs)
+
+
+class UnauthorizedUserException(StreamBotException):
+    def __init__(self, *args, **kwargs):
+        StreamBotException.__init__(self, *args, **kwargs)

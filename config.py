@@ -1,5 +1,6 @@
 import configparser
 import time
+import datetime
 
 
 class Config:
@@ -15,6 +16,8 @@ class Config:
         self.__discord_api_key=None
         self.__stream_play_key=None
         self.__default_stream_key=None
+        self.__droplet_inactivity_delta_sec=None
+        self.__droplet_inactivity_poll_sec=None
 
         if file_path is not None:
             self.__config_refresh_base_time=time.perf_counter()
@@ -31,7 +34,9 @@ class Config:
         self.__digital_ocean_api_key=parser.get("ApiKey", "DigitalOceanApiKey", fallback=None)
         self.__discord_api_key=parser.get("ApiKey", "DiscordApiKey", fallback=None)
         self.__stream_play_key=parser.get("StreamPlayKey", "PlayKey", fallback="{play key}")
-        self.__stream_play_key=parser.get("StreamPlayKey", "DefaultStreamKey", fallback="{stream key}")
+        self.__default_stream_key=parser.get("StreamPlayKey", "DefaultStreamKey", fallback="{stream key}")
+        self.__droplet_inactivity_delta_sec=parser.get("Droplet", "DropletInactivityDelta", fallback=None)
+        self.__droplet_inactivity_poll_sec=parser.get("Droplet", "DropletInactivityPollDelaySec", fallback=None)
 
     def __check_for_config_refresh(self):
         if self.__config_refresh_time_threshold is not None and \
@@ -67,3 +72,15 @@ class Config:
     def default_stream_key(self):
         self.__check_for_config_refresh()
         return self.__default_stream_key
+
+    def droplet_inactivity_delta(self):
+        self.__check_for_config_refresh()
+        if self.__droplet_inactivity_delta_sec is None:
+            return self.__droplet_inactivity_delta_sec
+        return datetime.timedelta(seconds=float(self.__droplet_inactivity_delta_sec))
+
+    def droplet_inactivity_poll_sec(self):
+        self.__check_for_config_refresh()
+        if self.__droplet_inactivity_poll_sec is None:
+            return self.__droplet_inactivity_poll_sec
+        return float(self.__droplet_inactivity_poll_sec)
