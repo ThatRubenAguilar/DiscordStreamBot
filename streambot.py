@@ -190,6 +190,7 @@ async def stream_help(message):
 
 
 if __name__ == '__main__':
+    client.loop.set_debug(True)
     #logging.getLogger('backoff').addHandler(logging.StreamHandler(stream=sys.stdout))
     DropletApi.track_single_droplets()
     try:
