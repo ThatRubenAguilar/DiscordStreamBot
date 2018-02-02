@@ -113,7 +113,8 @@ async def call_unauthorized(coroutine, message):
 
 def message_progress_callback(message):
     async def text_progress_callback(text):
-        await client.send_message(message.channel, text)
+        if not client.is_closed:
+            await client.send_message(message.channel, text)
 
     return text_progress_callback
 
