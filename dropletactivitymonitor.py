@@ -34,14 +34,14 @@ class DropletActivityMonitor:
         asyncio.run_coroutine_threadsafe(self.__start_monitoring_async(droplet, callback), loop=loop)
 
     async def start_monitoring_async(self, droplet, callback):
-        return self.__start_monitoring_async(droplet, callback)
+        await self.__start_monitoring_async(droplet, callback)
 
     def start_monitoring_no_wait(self, droplet, callback):
         loop = self.__loop
         coroutine = self.__start_monitoring_async(droplet, callback)
 
-        loop.create_task(coroutine)
-        #asyncio.ensure_future(coroutine, loop=loop)
+        #loop.create_task(coroutine)
+        asyncio.ensure_future(coroutine, loop=loop)
 
     async def __start_monitoring_async(self, droplet, callback):
         continue_loop = True

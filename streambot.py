@@ -189,12 +189,35 @@ async def stream_help(message):
                               "!turn off stream \n" \
                               "!stream status")
 
+def start_loop(*args, **kwargs):
+    try:
+        # client.loop.run_until_complete(client.start(*args, **kwargs))
+        asyncio.ensure_future(client.start(*args, **kwargs), loop=client.loop)
+        client.loop.run_forever()
+    except KeyboardInterrupt:
+        client.loop.run_until_complete(client.logout())
+        pending = asyncio.Task.all_tasks(loop=client.loop)
+        gathered = asyncio.gather(*pending, loop=client.loop)
+        try:
+            gathered.cancel()
+            client.loop.run_until_complete(gathered)
+
+            # we want to retrieve any exceptions to make sure that
+            # they don't nag us about it being un-retrieved.
+            gathered.exception()
+        except:
+            pass
+    finally:
+        client.loop.close()
+
+
 
 if __name__ == '__main__':
     client.loop.set_debug(True)
     #logging.getLogger('backoff').addHandler(logging.StreamHandler(stream=sys.stdout))
     DropletApi.track_single_droplets()
     try:
-        client.run(config.discord_api_key())
+        #client.run(config.discord_api_key())
+        start_loop(config.discord_api_key())
     except KeyboardInterrupt:
         pass
