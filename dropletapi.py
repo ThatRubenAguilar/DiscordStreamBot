@@ -161,8 +161,8 @@ class DropletApi:
             droplet.load()
 
             if inactivity_monitor is not None:
-                inactivity_monitor.start_monitoring(droplet, DropletApi.destroy_droplet_callback(progress_callback))
-                #inactivity_monitor.start_monitoring_no_wait(droplet, DropletApi.destroy_droplet_callback(progress_callback))
+                #inactivity_monitor.start_monitoring(droplet, DropletApi.destroy_droplet_callback(progress_callback))
+                inactivity_monitor.start_monitoring_no_wait(droplet, DropletApi.destroy_droplet_callback(progress_callback))
 
             return droplet
 
