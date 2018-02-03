@@ -4,6 +4,7 @@ import dropletapi
 import sys
 import logging
 import time
+import traceback
 from config import Config
 import digitalocean as digio
 from dropletapi import DropletApi
@@ -213,6 +214,10 @@ def start_loop(*args, **kwargs):
 
 
 if __name__ == '__main__':
+    str_handler = logging.StreamHandler
+    logging.basicConfig(level=logging.DEBUG)
+
+    logging.info("Starting streambot")
     client.loop.set_debug(True)
     #logging.getLogger('backoff').addHandler(logging.StreamHandler(stream=sys.stdout))
     DropletApi.track_single_droplets()
@@ -221,3 +226,9 @@ if __name__ == '__main__':
         start_loop(config.discord_api_key())
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        tb = traceback.format_exc()
+        logging.error("Main loop exception: {0} \n at {1}".format(e if len(e.args) == 0 else e.args[0], tb))
+        pass
+    finally:
+        logging.info("Ending streambot")
