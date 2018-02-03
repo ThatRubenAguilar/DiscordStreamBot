@@ -20,7 +20,7 @@ timer_rollover_detection = -1000000000  # maxint / 2 ~
 client = discord.Client()
 config = Config("streambot.config")
 server_activity_monitor = \
-    DropletActivityMonitor(config.droplet_inactivity_delta(), config.droplet_inactivity_poll_sec(), client.loop)
+    DropletActivityMonitor(config.droplet_inactivity_delta(), config.droplet_inactivity_poll_sec(), loop=client.loop)
 
 
 @client.event

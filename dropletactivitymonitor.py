@@ -12,12 +12,15 @@ import concurrent.futures
 import backoff
 
 class DropletActivityMonitor:
-    def __init__(self, inactive_time_delta=timedelta(seconds=300), poll_delay_sec=60, loop=None):
+    def __init__(self, inactive_time_delta=timedelta(seconds=300), poll_delay_sec=60, initial_monitor_delay_sec=30, loop=None):
         if inactive_time_delta is None:
             inactive_time_delta = timedelta(seconds=300)
         if poll_delay_sec is None:
             poll_delay_sec = 60
+        if initial_monitor_delay_sec is None:
+            initial_monitor_delay_sec = 30
 
+        self.__initial_monitor_delay_sec = initial_monitor_delay_sec
         self.__inactive_time_delta = inactive_time_delta
         self.__poll_delay_sec = poll_delay_sec
         self.__loop=loop if loop is not None else asyncio.get_event_loop()
@@ -44,6 +47,7 @@ class DropletActivityMonitor:
         asyncio.ensure_future(coroutine, loop=loop)
 
     async def __start_monitoring_async(self, droplet, callback):
+        await asyncio.sleep(self.__initial_monitor_delay_sec)
         continue_loop = True
         try:
             while True:
@@ -67,9 +71,12 @@ class DropletActivityMonitor:
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=5)
     async def get_last_active_time(self, ip):
-        await asyncio.sleep(0)
+        loop = self.__loop
         url = "http://{}/last_active_time".format(ip)
-        r = requests.get(url)
+        task = loop.run_in_executor(None, requests.get,
+                                    url)
+
+        r = await asyncio.ensure_future(task, loop=loop)
         r.raise_for_status()
         json_obj = r.json()
         str_time = json_obj["last_active_time"]
