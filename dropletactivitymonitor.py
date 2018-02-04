@@ -25,49 +25,53 @@ class DropletActivityMonitor:
         self.__poll_delay_sec = poll_delay_sec
         self.__loop=loop if loop is not None else asyncio.get_event_loop()
 
-    def start_monitoring(self, droplet, callback):
+    def start_monitoring(self, droplet, callback, callback_error):
         loop = self.__loop
         task = loop.run_in_executor(None, self.__start_monitoring,
-                                    droplet, callback, loop)
+                                    droplet, callback, callback_error, loop)
 
         asyncio.ensure_future(task, loop=loop)
 
-    def __start_monitoring(self, droplet, callback, loop):
+    def __start_monitoring(self, droplet, callback, callback_error, loop):
         asyncio.set_event_loop(loop)
-        asyncio.run_coroutine_threadsafe(self.__start_monitoring_async(droplet, callback), loop=loop)
+        asyncio.run_coroutine_threadsafe(self.__start_monitoring_async(droplet, callback, callback_error), loop=loop)
 
-    async def start_monitoring_async(self, droplet, callback):
-        await self.__start_monitoring_async(droplet, callback)
+    async def start_monitoring_async(self, droplet, callback, callback_error):
+        await self.__start_monitoring_async(droplet, callback, callback_error)
 
-    def start_monitoring_no_wait(self, droplet, callback):
+    def start_monitoring_no_wait(self, droplet, callback, callback_error):
         loop = self.__loop
-        coroutine = self.__start_monitoring_async(droplet, callback)
+        coroutine = self.__start_monitoring_async(droplet, callback, callback_error)
 
-        #loop.create_task(coroutine)
         asyncio.ensure_future(coroutine, loop=loop)
 
-    async def __start_monitoring_async(self, droplet, callback):
+    async def __start_monitoring_async(self, droplet, callback, callback_error):
         await asyncio.sleep(self.__initial_monitor_delay_sec)
-        continue_loop = True
         try:
-            while True:
-                last_active_utc_raw = await self.get_last_active_time(droplet.ip_address)
-                if last_active_utc_raw is not None:
-                    last_active_utc_time = datetime.utcfromtimestamp(last_active_utc_raw)
-                    now_utc = datetime.utcfromtimestamp(time.time())
-                    delta_utc = now_utc - last_active_utc_time
-                    print("checking for inactivity at {0} : delta {1}".format(now_utc, delta_utc))
-                    if delta_utc > self.__inactive_time_delta:
-                        continue_loop = await callback(last_active_utc_time, droplet)
-
-                if not continue_loop:
-                    break
-
-                await asyncio.sleep(self.__poll_delay_sec)
+            await self.__monitoring_loop(droplet, callback)
         except Exception as e:
             tb = traceback.format_exc()
-            logging.info("monitoring ended for droplet {0} due to {1} \n at {2}".format(droplet.name, e if len(e.args) == 0 else e.args[0], tb))
+            logging.error("monitoring ended for droplet {0} due to {1} \n at {2}".format(droplet.name, e if len(e.args) == 0 else e.args[0], tb))
+            await callback_error(e, droplet)
             pass
+
+    @backoff.on_exception(backoff.expo, Exception, max_tries=5)
+    async def __monitoring_loop(self, droplet, callback):
+        continue_loop = True
+        while True:
+            last_active_utc_raw = await self.get_last_active_time(droplet.ip_address)
+            if last_active_utc_raw is not None:
+                last_active_utc_time = datetime.utcfromtimestamp(last_active_utc_raw)
+                now_utc = datetime.utcfromtimestamp(time.time())
+                delta_utc = now_utc - last_active_utc_time
+                logging.info("checking for inactivity at {0} : delta {1}".format(now_utc, delta_utc))
+                if delta_utc > self.__inactive_time_delta:
+                    continue_loop = await callback(last_active_utc_time, droplet)
+
+            if not continue_loop:
+                break
+
+            await asyncio.sleep(self.__poll_delay_sec)
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=5)
     async def get_last_active_time(self, ip):

@@ -5,6 +5,7 @@ from config import Config
 from exception import LockedDropletException, MissingFirewallException, MissingSnapshotException, \
     MissingDropletException, DropletBootFailedException
 import asyncio
+import logging
 
 
 class DropletApi:
@@ -161,8 +162,9 @@ class DropletApi:
             droplet.load()
 
             if inactivity_monitor is not None:
-                inactivity_monitor.start_monitoring(droplet, DropletApi.destroy_droplet_callback(progress_callback))
-                #inactivity_monitor.start_monitoring_no_wait(droplet, DropletApi.destroy_droplet_callback(progress_callback))
+                inactivity_monitor.start_monitoring(droplet,
+                                                    DropletApi.destroy_droplet_callback(progress_callback),
+                                                    DropletApi.destroy_droplet_callback_errored(progress_callback))
 
             return droplet
 
@@ -173,6 +175,8 @@ class DropletApi:
     @staticmethod
     def destroy_droplet_callback(progress_callback = None):
         async def __destroy_droplet_curried(last_active_utc, droplet):
+            logging.info("droplet {0} turned off due to inactivity (last active at {1} utc)".format(
+                        droplet.name, str(last_active_utc)))
             if progress_callback is not None:
                 await progress_callback(
                     "droplet {0} turned off due to inactivity (last active at {1} utc)".format(
@@ -185,6 +189,25 @@ class DropletApi:
             return False
 
         return __destroy_droplet_curried
+
+
+    @staticmethod
+    def destroy_droplet_callback_errored(progress_callback = None):
+        async def __destroy_droplet_errored_curried(error, droplet):
+            logging.error("droplet {0} turned off due to inactivity monitor error: {1}".format(
+                        droplet.name, error if len(error.args) == 0 else error.args[0]))
+            if progress_callback is not None:
+                await progress_callback(
+                    "droplet {0} turned off due to inactivity monitor error".format(
+                        droplet.name))
+
+            droplet.destroy()
+            if DropletApi.__existing_droplets is not None and droplet.name in DropletApi.__existing_droplets:
+                DropletApi.__existing_droplets.pop(droplet.name)
+
+            return False
+
+        return __destroy_droplet_errored_curried
 
 
 if __name__ == '__main__':

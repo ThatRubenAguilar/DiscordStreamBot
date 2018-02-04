@@ -192,43 +192,48 @@ async def stream_help(message):
 
 def start_loop(*args, **kwargs):
     try:
-        # client.loop.run_until_complete(client.start(*args, **kwargs))
         asyncio.ensure_future(client.start(*args, **kwargs), loop=client.loop)
         client.loop.run_forever()
     except KeyboardInterrupt:
-        client.loop.run_until_complete(client.logout())
-        pending = asyncio.Task.all_tasks(loop=client.loop)
-        gathered = asyncio.gather(*pending, loop=client.loop)
-        try:
-            gathered.cancel()
-            client.loop.run_until_complete(gathered)
-
-            # we want to retrieve any exceptions to make sure that
-            # they don't nag us about it being un-retrieved.
-            gathered.exception()
-        except:
-            pass
+        finish_pending_tasks()
+        pass
+    except Exception:
+        finish_pending_tasks(cancel=False)
+        pass
     finally:
         client.loop.close()
+
+def finish_pending_tasks(cancel=True):
+    client.loop.run_until_complete(client.logout())
+    pending = asyncio.Task.all_tasks(loop=client.loop)
+    gathered = asyncio.gather(*pending, loop=client.loop)
+    try:
+        if cancel:
+            gathered.cancel()
+        client.loop.run_until_complete(gathered)
+
+        # we want to retrieve any exceptions to make sure that
+        # they don't nag us about it being un-retrieved.
+        gathered.exception()
+    except:
+        pass
 
 
 
 if __name__ == '__main__':
-    str_handler = logging.StreamHandler
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     logging.info("Starting streambot")
     client.loop.set_debug(True)
     #logging.getLogger('backoff').addHandler(logging.StreamHandler(stream=sys.stdout))
     DropletApi.track_single_droplets()
-    try:
-        #client.run(config.discord_api_key())
-        start_loop(config.discord_api_key())
-    except KeyboardInterrupt:
-        pass
-    except Exception as e:
-        tb = traceback.format_exc()
-        logging.error("Main loop exception: {0} \n at {1}".format(e if len(e.args) == 0 else e.args[0], tb))
-        pass
-    finally:
-        logging.info("Ending streambot")
+    while True:
+        try:
+            #client.run(config.discord_api_key())
+            start_loop(config.discord_api_key())
+        except KeyboardInterrupt:
+            logging.info("Ending streambot")
+            pass
+        except Exception as e:
+            tb = traceback.format_exc()
+            logging.error("Main loop exception: {0} \n at {1}".format(e if len(e.args) == 0 else e.args[0], tb))
